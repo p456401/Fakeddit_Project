@@ -1,0 +1,84 @@
+{
+  "model_name": "DistilBERT",
+  "pretrained_model": "distilbert-base-uncased",
+  "dataset_name": "Fakeddit multimodal dataset (text-only input)",
+  "label_mapping": {
+    "0": "Fake",
+    "1": "True"
+  },
+  "selection_metric": "validation binary F1 (positive label 1)",
+  "best_epoch": 2,
+  "training_rows_available": 562466,
+  "training_rows_used": 8000,
+  "validation_rows_available": 59169,
+  "validation_rows_used": 8000,
+  "test_rows_evaluated": 59163,
+  "seed": 42,
+  "configuration": {
+    "max_length": 128,
+    "batch_size": 4,
+    "gradient_accumulation_steps": 4,
+    "effective_batch_size": 16,
+    "maximum_epochs": 2,
+    "early_stopping_patience": 1,
+    "learning_rate": 2e-05,
+    "weight_decay": 0.01,
+    "class_weighted_loss": true,
+    "device": "cpu"
+  },
+  "validation_history": [
+    {
+      "epoch": 1,
+      "accuracy": 0.828875,
+      "precision": 0.7704315886134068,
+      "recall": 0.8026147959183674,
+      "f1": 0.7861939715758238,
+      "macro_f1": 0.8217726135882661,
+      "confusion_matrix": [
+        [
+          4114,
+          750
+        ],
+        [
+          619,
+          2517
+        ]
+      ]
+    },
+    {
+      "epoch": 2,
+      "accuracy": 0.82825,
+      "precision": 0.7531609195402299,
+      "recall": 0.8357780612244898,
+      "f1": 0.7923216444981862,
+      "macro_f1": 0.8229511035790164,
+      "confusion_matrix": [
+        [
+          4005,
+          859
+        ],
+        [
+          515,
+          2621
+        ]
+      ]
+    }
+  ],
+  "test_metrics": {
+    "accuracy": 0.8335446140324189,
+    "precision": 0.7655380515714397,
+    "recall": 0.8348290598290599,
+    "f1": 0.798683511181978,
+    "macro_f1": 0.8283989247933864,
+    "confusion_matrix": [
+      [
+        29780,
+        5983
+      ],
+      [
+        3865,
+        19535
+      ]
+    ]
+  }
+}

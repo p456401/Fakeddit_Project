@@ -1,0 +1,50 @@
+# Local data, downloaded images, manifests and derived split files
+/data/
+
+# Python environments, bytecode and caches
+/.venv/
+/.venv*/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+cache/
+
+# Local editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+
+# Local credentials and temporary files
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+*.log
+*.tmp
+
+# Keep only the intentionally published model assets.
+/models/*
+!/models/tfidf_vectorizer.pkl
+!/models/logistic_regression.pkl
+!/models/distilbert_fakeddit_text/
+/models/distilbert_fakeddit_text/*
+!/models/distilbert_fakeddit_text/config.json
+!/models/distilbert_fakeddit_text/special_tokens_map.json
+!/models/distilbert_fakeddit_text/tokenizer.json
+!/models/distilbert_fakeddit_text/tokenizer_config.json
+!/models/distilbert_fakeddit_text/vocab.txt
+!/models/distilbert_fakeddit_text/model.safetensors
+!/models/resnet_fakeddit/
+/models/resnet_fakeddit/*
+!/models/resnet_fakeddit/resnet50_best.pth
+
+# Generated report figures are reproducible; retain their source only.
+/docs/figures/

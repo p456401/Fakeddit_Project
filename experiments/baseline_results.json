@@ -1,0 +1,20 @@
+{
+  "model_name": "TF-IDF + Logistic Regression",
+  "dataset_name": "Fakeddit multimodal dataset",
+  "validation_metrics": {
+    "accuracy": 0.8321756325102672,
+    "precision": 0.7578231292517007,
+    "recall": 0.84048286265859236,
+    "f1_score": 0.7970155355682748
+  },
+  "test_metrics": {
+    "accuracy": 0.8352179571691767,
+    "precision": 0.7628123676408302,
+    "recall": 0.8466239316239316,
+    "f1_score": 0.8025359016426648
+  },
+  "test_confusion_matrix": [
+    [29603, 6160],
+    [3589, 19811]
+  ]
+}
