@@ -14,10 +14,8 @@ from xml.etree import ElementTree as ET
 import matplotlib
 
 matplotlib.use("Agg")
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.table import Table as PlotTable
 from PIL import Image
 
 
@@ -121,6 +119,11 @@ def append_table(body: ET.Element, rows: list[list[str]]) -> None:
     properties = ET.SubElement(table, f"{{{W}}}tblPr")
     ET.SubElement(
         properties,
+        f"{{{W}}}tblLayout",
+        {f"{{{W}}}type": "fixed"},
+    )
+    ET.SubElement(
+        properties,
         f"{{{W}}}tblW",
         {f"{{{W}}}w": "10440", f"{{{W}}}type": "dxa"},
     )
@@ -138,6 +141,12 @@ def append_table(body: ET.Element, rows: list[list[str]]) -> None:
         ET.SubElement(grid, f"{{{W}}}gridCol", {f"{{{W}}}w": column_width})
     for row_index, row in enumerate(rows):
         row_node = ET.SubElement(table, f"{{{W}}}tr")
+        if row_index == 0:
+            header_properties = ET.SubElement(row_node, f"{{{W}}}trPr")
+            ET.SubElement(header_properties, f"{{{W}}}tblHeader", {f"{{{W}}}val": "true"})
+        else:
+            row_properties = ET.SubElement(row_node, f"{{{W}}}trPr")
+            ET.SubElement(row_properties, f"{{{W}}}cantSplit")
         for column_index in range(column_count):
             cell = ET.SubElement(row_node, f"{{{W}}}tc")
             cell_properties = ET.SubElement(cell, f"{{{W}}}tcPr")
@@ -146,6 +155,13 @@ def append_table(body: ET.Element, rows: list[list[str]]) -> None:
                 f"{{{W}}}tcW",
                 {f"{{{W}}}w": column_width, f"{{{W}}}type": "dxa"},
             )
+            margins = ET.SubElement(cell_properties, f"{{{W}}}tcMar")
+            for side in ("top", "start", "bottom", "end"):
+                ET.SubElement(
+                    margins,
+                    f"{{{W}}}{side}",
+                    {f"{{{W}}}w": "55", f"{{{W}}}type": "dxa"},
+                )
             if row_index == 0:
                 shading = ET.SubElement(cell_properties, f"{{{W}}}shd")
                 shading.set(f"{{{W}}}fill", "D9EAF7")
@@ -296,83 +312,271 @@ def table_lines(rows: list[list[str]], width: int) -> list[list[str]]:
 
 
 def render_pdf(blocks: list[dict[str, Any]]) -> None:
-    page_width, page_height = 8.27, 11.69
-    margin = 0.62
-    line_height = 0.18
+    page_width, page_height = 8.5, 11.0
+    left, right, top, bottom = 48.0, 48.0, 52.0, 44.0
+    content_width = page_width * 72 - left - right
+    page_number = 0
     pdf = PdfPages(PDF_OUTPUT)
-    figure, axis = plt.subplots(figsize=(page_width, page_height))
-    axis.set_axis_off()
-    y = 1.0 - margin / page_height
+    figure = None
+    y = 0.0
+    has_content = False
 
-    def new_page() -> None:
-        nonlocal figure, axis, y
-        pdf.savefig(figure, bbox_inches="tight")
+    def start_page(landscape: bool = False) -> None:
+        nonlocal figure, y, has_content, page_width, page_height, content_width
+        page_width, page_height = (11.69, 8.27) if landscape else (8.5, 11.0)
+        content_width = page_width * 72 - left - right
+        figure = plt.figure(figsize=(page_width, page_height))
+        y = page_height * 72 - top
+        has_content = False
+
+    def finish_page() -> None:
+        nonlocal page_number, figure, has_content
+        if figure is None or not has_content:
+            return
+        page_number += 1
+        figure.text(
+            0.5,
+            0.025,
+            f"Context-Aware Multimodal Misinformation Verification  |  {page_number}",
+            ha="center",
+            va="bottom",
+            fontsize=7.5,
+            color="#666666",
+        )
+        pdf.savefig(figure, bbox_inches=None)
         plt.close(figure)
-        figure, axis = plt.subplots(figsize=(page_width, page_height))
-        axis.set_axis_off()
-        y = 1.0 - margin / page_height
+        figure = None
+        has_content = False
 
-    for block in blocks:
-        if block["kind"] == "image":
-            new_page()
-            image_path = REPORT.parent / block["path"]
-            image = mpimg.imread(image_path)
-            image_height = min(0.68, 0.82 * image.shape[0] / image.shape[1])
-            axis.imshow(image, extent=(0.08, 0.92, 0.48 - image_height / 2, 0.48 + image_height / 2), aspect="auto")
-            axis.text(0.08, 0.9, plain_text(block["alt"]), transform=axis.transAxes, fontsize=12, weight="bold")
-            new_page()
-            continue
-        if block["kind"] == "table":
-            new_page()
-            rows = table_lines(block["rows"], 100)
-            table = axis.table(
-                cellText=rows[1:],
-                colLabels=rows[0],
-                loc="center",
-                cellLoc="left",
-                bbox=(0.04, 0.22, 0.92, 0.56),
+    def ensure_space(height: float) -> None:
+        nonlocal figure, has_content
+        if y - height < bottom:
+            finish_page()
+            start_page()
+
+    def draw_text(
+        text: str,
+        *,
+        size: float = 9.2,
+        weight: str = "normal",
+        color: str = "#222222",
+        indent: float = 0.0,
+        wrap_chars: int = 112,
+        leading: float | None = None,
+    ) -> None:
+        nonlocal y, has_content
+        line_height = leading or size * 1.32
+        lines = textwrap.wrap(text, width=wrap_chars, break_long_words=True) or [""]
+        for line in lines:
+            ensure_space(line_height + 1)
+            figure.text(
+                (left + indent) / (page_width * 72),
+                y / (page_height * 72),
+                line,
+                ha="left",
+                va="top",
+                fontsize=size,
+                fontweight=weight,
+                color=color,
             )
-            table.auto_set_font_size(False)
-            table.set_fontsize(6.8 if len(rows[0]) > 4 else 8)
-            for (row, _), cell in table.get_celld().items():
-                cell.set_edgecolor("#888888")
-                cell.get_text().set_wrap(True)
-                if row == 0:
-                    cell.set_facecolor("#D9EAF7")
-                    cell.get_text().set_weight("bold")
-            new_page()
+            y -= line_height
+            has_content = True
+        y -= 3.0
+
+    def draw_table(rows: list[list[str]]) -> None:
+        nonlocal y, has_content
+        column_count = max(map(len, rows))
+        weights = [
+            max(
+                1.0,
+                min(
+                    2.5,
+                    max(
+                        len(plain_text(row[column]))
+                        for row in rows
+                        if column < len(row)
+                    )
+                    / 18,
+                ),
+            )
+            for column in range(column_count)
+        ]
+        widths = [content_width * value / sum(weights) for value in weights]
+        font_size = 8.3 if column_count >= 6 else 8.4
+        leading = font_size * 1.22
+        prepared: list[tuple[list[str], float]] = []
+        for row in rows:
+            cells: list[str] = []
+            max_lines = 1
+            for column in range(column_count):
+                raw = plain_text(row[column]) if column < len(row) else ""
+                char_limit = max(7, int((widths[column] - 10) / (font_size * 0.51)))
+                wrapped = textwrap.wrap(raw, width=char_limit, break_long_words=True) or [""]
+                max_lines = max(max_lines, len(wrapped))
+                cells.append("\n".join(wrapped))
+            prepared.append((cells, max_lines * leading + 9))
+
+        required_height = sum(height for _, height in prepared)
+        if y - required_height < bottom:
+            finish_page()
+            start_page()
+
+        for row_index, (cells, row_height) in enumerate(prepared):
+            if y - row_height < bottom:
+                finish_page()
+                start_page()
+            cursor = left
+            for column, cell in enumerate(cells):
+                width = widths[column]
+                rectangle = plt.Rectangle(
+                    (cursor / 72, (y - row_height) / 72),
+                    width / 72,
+                    row_height / 72,
+                    transform=figure.transFigure,
+                    facecolor="#D9EAF7" if row_index == 0 else "#FFFFFF",
+                    edgecolor="#9099A3",
+                    linewidth=0.55,
+                )
+                figure.add_artist(rectangle)
+                figure.text(
+                    (cursor + 5) / (page_width * 72),
+                    (y - 4) / (page_height * 72),
+                    cell,
+                    ha="left",
+                    va="top",
+                    fontsize=font_size,
+                    fontweight="bold" if row_index == 0 else "normal",
+                    color="#17212B",
+                    linespacing=1.22,
+                )
+                cursor += width
+            y -= row_height
+            has_content = True
+        y -= 6
+
+    def draw_image(block: dict[str, Any]) -> None:
+        nonlocal figure, has_content
+        finish_page()
+        start_page(landscape=True)
+        image_path = (REPORT.parent / block["path"]).resolve()
+        if not image_path.is_file():
+            raise FileNotFoundError(f"Report figure does not exist: {image_path}")
+        with Image.open(image_path) as image:
+            width, height = image.size
+            aspect = width / height
+        area_width = page_width * 72 - 44
+        area_height = page_height * 72 - 74
+        display_width = min(area_width, area_height * aspect)
+        display_height = display_width / aspect
+        image = plt.imread(image_path)
+        figure.add_axes(
+            [
+                0.5 - display_width / (page_width * 72) / 2,
+                0.5 - display_height / (page_height * 72) / 2 - 0.02,
+                display_width / (page_width * 72),
+                display_height / (page_height * 72),
+            ]
+        ).imshow(image, aspect="auto")
+        figure.axes[-1].set_axis_off()
+        has_content = True
+        finish_page()
+        start_page()
+
+    start_page()
+    for block in blocks:
+        kind = block["kind"]
+        if kind == "image":
+            draw_image(block)
             continue
-        if block["kind"] == "heading":
+        if kind == "table":
+            draw_table(block["rows"])
+            continue
+        if kind == "heading":
             level = block["level"]
-            size = {1: 20, 2: 15, 3: 11}[level]
-            text = plain_text(block["text"])
-            height = {1: 0.055, 2: 0.04, 3: 0.032}[level]
-            if y - height < margin / page_height:
-                new_page()
-            axis.text(0.07, y, text, transform=axis.transAxes, fontsize=size, weight="bold", color="#17365D", va="top")
-            y -= height
+            size = {1: 20.0, 2: 14.5, 3: 11.0}[level]
+            wrap_chars = {1: 52, 2: 74, 3: 94}[level]
+            if y - size * 3.0 < bottom:
+                finish_page()
+                start_page()
+            y -= 5 if level > 1 else 0
+            draw_text(
+                plain_text(block["text"]),
+                size=size,
+                weight="bold",
+                color="#17365D",
+                wrap_chars=wrap_chars,
+                leading=size * 1.3,
+            )
             continue
 
         text = plain_text(block["text"])
-        if block["kind"] == "bullet":
+        if kind == "bullet":
             text = "\u2022  " + text
-        wrapped = textwrap.wrap(text, width=110, break_long_words=True) or [""]
-        height = len(wrapped) * line_height / page_height + 0.01
-        if y - height < margin / page_height:
-            new_page()
-        axis.text(
-            0.07,
-            y,
-            "\n".join(wrapped),
-            transform=axis.transAxes,
-            fontsize=9,
-            color="#222222",
-            va="top",
-            linespacing=1.25,
+        elif re.match(r"^\d+\.\s+", text):
+            text = textwrap.dedent(text)
+        draw_text(
+            text,
+            size=8.9,
+            indent=12 if kind == "bullet" else 0,
+            wrap_chars=116,
+            leading=11.7,
         )
-        y -= height
-    new_page()
+    finish_page()
     pdf.close()
+    plt.close("all")
+
+
+def validate_outputs(blocks: list[dict[str, Any]]) -> None:
+    with zipfile.ZipFile(DOCX_OUTPUT) as archive:
+        if archive.testzip() is not None:
+            raise ValueError("Generated DOCX has an invalid ZIP entry")
+        document = ET.fromstring(archive.read("word/document.xml"))
+        relationships = ET.fromstring(
+            archive.read("word/_rels/document.xml.rels")
+        )
+        image_count = len(document.findall(f".//{{{A}}}blip"))
+        expected_images = sum(block["kind"] == "image" for block in blocks)
+        if image_count != expected_images:
+            raise ValueError(
+                f"DOCX embeds {image_count} report figures; expected {expected_images}"
+            )
+        relation_ids = {
+            relationship.get("Id")
+            for relationship in relationships.findall(f"{{{PKG_REL}}}Relationship")
+        }
+        for picture in document.findall(f".//{{{A}}}blip"):
+            if picture.get(f"{{{R}}}embed") not in relation_ids:
+                raise ValueError("DOCX contains an image without a relationship")
+
+    pdf_bytes = PDF_OUTPUT.read_bytes()
+    if not pdf_bytes.startswith(b"%PDF-") or not pdf_bytes.rstrip().endswith(b"%%EOF"):
+        raise ValueError("Generated PDF has an invalid header or EOF marker")
+    page_objects = re.findall(
+        rb"(?ms)^\d+\s+\d+\s+obj\b(.*?)\bendobj\b", pdf_bytes
+    )
+    pages = [
+        page
+        for page in page_objects
+        if re.search(rb"/Type\s*/Page\b", page)
+    ]
+    figure_count = sum(block["kind"] == "image" for block in blocks)
+    if len(pages) < figure_count + 1:
+        raise ValueError("PDF is missing report pages")
+    for page_number, page in enumerate(pages, start=1):
+        if not re.search(rb"/Contents\s+\d+\s+\d+\s+R", page):
+            raise ValueError(f"PDF page {page_number} has no content stream")
+    landscape_pages = sum(
+        1
+        for page in pages
+        if (match := re.search(rb"/MediaBox\s*\[([^]]+)", page))
+        and float(match.group(1).split()[-2])
+        > float(match.group(1).split()[-1])
+    )
+    if landscape_pages != figure_count:
+        raise ValueError(
+            f"PDF contains {landscape_pages} landscape pages for "
+            f"{figure_count} full-page figures"
+        )
 
 
 def main() -> None:
@@ -385,13 +589,7 @@ def main() -> None:
     blocks = parse_report(REPORT.read_text(encoding="utf-8"))
     write_docx(blocks)
     render_pdf(blocks)
-    with zipfile.ZipFile(DOCX_OUTPUT) as archive:
-        if archive.testzip() is not None:
-            raise ValueError("Generated DOCX has an invalid ZIP entry")
-        ET.fromstring(archive.read("word/document.xml"))
-    with PDF_OUTPUT.open("rb") as pdf_file:
-        if not pdf_file.read(5) == b"%PDF-":
-            raise ValueError("Generated PDF does not have a PDF header")
+    validate_outputs(blocks)
     print(f"Created {DOCX_OUTPUT} and {PDF_OUTPUT}")
 
 

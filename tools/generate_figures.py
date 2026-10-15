@@ -19,13 +19,20 @@ FUSION_RESULTS = (
     PROJECT_ROOT / "experiments" / "multimodal_late_fusion_20261015_140619.json"
 )
 RESULTS = (
-    ("TF-IDF\n(full test)", PROJECT_ROOT / "experiments" / "baseline_results.json", None),
-    ("DistilBERT\n(full test)", PROJECT_ROOT / "experiments" / "transformer_results.json", None),
-    ("ResNet-50\n(150)", PROJECT_ROOT / "experiments" / "resnet_results.json", None),
-    ("TF-IDF + ResNet\n(150 aligned)", FUSION_RESULTS, "tfidf_plus_resnet50"),
-    ("DistilBERT + ResNet\n(150 aligned)", FUSION_RESULTS, "distilbert_plus_resnet50"),
+    ("TF-IDF + Logistic Regression\n59,163 full-test rows", PROJECT_ROOT / "experiments" / "baseline_results.json", None),
+    ("DistilBERT\n59,163 full-test rows", PROJECT_ROOT / "experiments" / "transformer_results.json", None),
+    ("ResNet-50\n150 test images", PROJECT_ROOT / "experiments" / "resnet_results.json", None),
+    ("TF-IDF + ResNet-50\n150 aligned test examples", FUSION_RESULTS, "tfidf_plus_resnet50"),
+    ("DistilBERT + ResNet-50\n150 aligned test examples", FUSION_RESULTS, "distilbert_plus_resnet50"),
 )
 METRICS = ("accuracy", "precision", "recall", "f1", "macro_f1")
+METRIC_LABELS = {
+    "accuracy": "Accuracy",
+    "precision": "Precision (True)",
+    "recall": "Recall (True)",
+    "f1": "F1 (True)",
+    "macro_f1": "Macro F1",
+}
 
 
 def load_result(path: Path) -> dict[str, Any]:
@@ -51,7 +58,7 @@ def test_metrics(
             "confusion_matrix": metrics["confusion_matrix_label_order_0_1"],
         }
     metrics = result.get("test_metrics")
-    if model == "TF-IDF" and isinstance(metrics, dict):
+    if model.startswith("TF-IDF") and isinstance(metrics, dict):
         metrics = {
             **metrics,
             "f1": metrics.get("f1", metrics.get("f1_score")),
@@ -81,7 +88,7 @@ def main() -> None:
         loaded_metrics.append(test_metrics(result, name.split("\n")[0], fusion_key))
 
     colors = ("#4472C4", "#70AD47", "#ED7D31", "#A5A5A5", "#8064A2")
-    fig, ax = plt.subplots(figsize=(13, 6.2), layout="constrained")
+    fig, ax = plt.subplots(figsize=(11.3, 5.5), layout="constrained")
     x = np.arange(len(labels))
     metrics_available = [
         (metric, index)
@@ -99,56 +106,103 @@ def main() -> None:
             positions,
             values,
             width,
-            label=metric.replace("_", " ").title(),
+            label=METRIC_LABELS[metric],
             color=colors[metric_index],
         )
         for bar, value in zip(bars, values):
             if np.isfinite(value):
                 ax.annotate(
-                    f"{value:.2f}",
+                    f"{value:.0%}",
                     (bar.get_x() + bar.get_width() / 2, value),
-                    xytext=(0, 3),
+                    xytext=(0, 2),
                     textcoords="offset points",
                     ha="center",
                     va="bottom",
                     fontsize=8,
                 )
-    ax.set_ylim(0, 1.13)
-    ax.set_ylabel("Score")
-    ax.set_xticks(x, labels)
-    ax.set_title("Saved test metrics (different test scopes; not a controlled ranking)")
-    ax.legend(ncols=3, loc="upper center", bbox_to_anchor=(0.5, 1.01))
-    fig.savefig(args.output_dir / "model_comparison.png", dpi=180)
+    ax.set_ylim(0, 1.20)
+    ax.set_yticks(np.arange(0.0, 1.01, 0.2), [f"{value:.0%}" for value in np.arange(0.0, 1.01, 0.2)])
+    ax.set_ylabel("Score (%)")
+    ax.set_xticks(x, labels, fontsize=9)
+    ax.set_title(
+        "Held-out test metrics by evaluation scope\n"
+        "Text models: full official test split | Image and fusion: 150-example subset",
+        fontsize=12,
+        pad=18,
+    )
+    ax.grid(axis="y", linestyle=":", linewidth=0.7, alpha=0.65)
+    ax.set_axisbelow(True)
+    ax.axvline(1.5, color="#555555", linestyle="--", linewidth=1.0)
+    ax.text(0.5, 1.125, "FULL OFFICIAL TEST SPLIT", transform=ax.get_xaxis_transform(),
+            ha="center", va="bottom", fontsize=9, fontweight="bold", color="#365F91")
+    ax.text(3.0, 1.125, "ALIGNED IMAGE SUBSET", transform=ax.get_xaxis_transform(),
+            ha="center", va="bottom", fontsize=9, fontweight="bold", color="#9C5700")
+    ax.text(0.5, -0.30,
+            "Positive class: True (label 1). Macro F1 averages labels 0 and 1. "
+            "TF-IDF full-test Macro F1 was not recorded.",
+            transform=ax.transAxes, ha="center", va="top", fontsize=8.5)
+    ax.legend(
+        ncols=3,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.16),
+        frameon=False,
+        fontsize=9,
+    )
+    fig.savefig(args.output_dir / "model_comparison.png", dpi=220, bbox_inches="tight")
     plt.close(fig)
 
-    fig, axes = plt.subplots(
-        1, len(labels), figsize=(18, 4.7), layout="constrained"
-    )
-    for ax, name, metrics in zip(axes, labels, loaded_metrics):
-        matrix = np.asarray(metrics.get("confusion_matrix"), dtype=int)
-        if matrix.shape != (2, 2):
-            raise ValueError(f"{name} confusion matrix must be 2x2")
-        image = ax.imshow(matrix, cmap="Blues")
-        ax.set_title(name)
-        ax.set_xticks((0, 1), ("Fake (0)", "True (1)"), rotation=25, ha="right")
-        ax.set_yticks((0, 1), ("Fake (0)", "True (1)"))
-        ax.set_xlabel("Predicted")
-        ax.set_ylabel("Actual")
-        threshold = matrix.max() / 2
-        for row in range(2):
-            for column in range(2):
-                ax.text(
-                    column,
-                    row,
-                    f"{matrix[row, column]}",
-                    ha="center",
-                    va="center",
-                    color="white" if matrix[row, column] > threshold else "black",
-                )
-        fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
-    fig.suptitle("Saved test confusion matrices (actual rows, predicted columns)")
-    fig.savefig(args.output_dir / "confusion_matrices.png", dpi=180)
-    plt.close(fig)
+    full_test_indices = (0, 1)
+    subset_indices = (2, 3, 4)
+    for filename, selected_indices, scope_title in (
+        ("confusion_matrices_full_test.png", full_test_indices, "Full official test split: 59,163 rows per model"),
+        ("confusion_matrices_subset.png", subset_indices, "Held-out image/fusion subset: 150 aligned examples per model"),
+    ):
+        selected_names = [labels[index] for index in selected_indices]
+        selected_metrics = [loaded_metrics[index] for index in selected_indices]
+        figure_width = 10.5 if len(selected_indices) == 2 else 11.3
+        fig, axes = plt.subplots(
+            1,
+            len(selected_indices),
+            figsize=(figure_width, 5.2),
+            layout="constrained",
+            squeeze=False,
+        )
+        vmax = max(
+            int(np.asarray(metric.get("confusion_matrix"), dtype=int).max())
+            for metric in selected_metrics
+        )
+        images = []
+        for ax, name, metrics in zip(axes[0], selected_names, selected_metrics):
+            matrix = np.asarray(metrics.get("confusion_matrix"), dtype=int)
+            if matrix.shape != (2, 2):
+                raise ValueError(f"{name} confusion matrix must be 2x2")
+            image = ax.imshow(matrix, cmap="Blues", vmin=0, vmax=vmax)
+            images.append(image)
+            ax.set_title(name, fontsize=10, pad=12)
+            ax.set_xticks((0, 1), ("Fake (0)", "True (1)"))
+            ax.set_yticks((0, 1), ("Fake (0)", "True (1)"))
+            ax.set_xlabel("Predicted class")
+            ax.set_ylabel("Actual class")
+            ax.tick_params(axis="both", labelsize=9)
+            for row in range(2):
+                for column in range(2):
+                    ax.text(
+                        column,
+                        row,
+                        f"{matrix[row, column]:,}",
+                        ha="center",
+                        va="center",
+                        fontsize=11,
+                        color="white" if matrix[row, column] > vmax / 2 else "black",
+                    )
+        fig.suptitle(
+            f"Test confusion matrices — {scope_title}\n"
+            "Rows: actual class | Columns: predicted class | Order: Fake (0), True (1)",
+            fontsize=11,
+        )
+        fig.colorbar(images[0], ax=list(axes[0]), shrink=0.82, label="Number of examples")
+        fig.savefig(args.output_dir / filename, dpi=220, bbox_inches="tight")
+        plt.close(fig)
     print(f"Generated figures in {args.output_dir}")
 
 

@@ -21,9 +21,9 @@ The workspace contains official train, validation and test inputs transformed in
 
 | Official split | Total | Fake (0) | True (1) | Fake share |
 |---|---:|---:|---:|---:|
-| Train | 562,466 | 341,460 | 221,006 | 60.71% |
-| Validation | 59,169 | 35,974 | 23,195 | 60.80% |
-| Test | 59,163 | 35,763 | 23,400 | 60.44% |
+| Train | 562,466 | 341,460 | 221,006 | 60.7% |
+| Validation | 59,169 | 35,974 | 23,195 | 60.8% |
+| Test | 59,163 | 35,763 | 23,400 | 60.4% |
 
 The data are imbalanced toward Fake, so accuracy alone is insufficient. The experiment implementations use class-weighted losses/class weights. Binary Precision, Recall and F1 refer to positive label 1 (True). Confusion matrices use `[0,1]` ordering with actual labels in rows and predictions in columns.
 
@@ -49,12 +49,12 @@ The image branch uses ResNet-50 [4] initialized with ImageNet `IMAGENET1K_V2` we
 
 The separate baseline result files do not contain fusion measurements. A new exploratory evaluation, saved as `experiments/multimodal_late_fusion_20261015_140619.json`, aligns the model inputs with the existing ID manifest and official validation/test CSVs. The validation and test subsets each contain 150 examples (91 Fake and 59 True), and IDs are checked against their official split. The experiment computes class probabilities from TF-IDF, DistilBERT and ResNet-50. For each text model independently, it chooses alpha on validation from 0.00 through 1.00 in 0.01 increments to maximize binary F1 for label 1; ties are resolved by higher accuracy, then proximity to 0.50, then lower alpha. The selected fusion is `p_true = alpha * p_true_text + (1-alpha) * p_true_resnet`, with a 0.5 threshold. The selected alpha is fixed before test data are read and evaluated.
 
-The validation-selected alpha values are 0.63 for TF-IDF plus ResNet and 0.38 for DistilBERT plus ResNet. Test metrics on the 150-image aligned subset are:
+The validation-selected alpha values are 0.63 for TF-IDF plus ResNet and 0.38 for DistilBERT plus ResNet. The held-out fusion evaluation uses exactly 150 aligned test examples (91 Fake, 59 True), selected by the existing image manifest from the official 59,163-row test split. The remaining 59,013 official test examples are not included. Test metrics on this subset are:
 
-| Aligned-subset system | Accuracy | Precision (True) | Recall (True) | F1 (True) | Macro F1 | Confusion matrix `[0,1]` |
-|---|---:|---:|---:|---:|---:|---|
-| TF-IDF + ResNet-50 (`alpha=0.63`) | 88.00% | 80.60% | 91.53% | 85.71% | 87.68% | `[[78, 13], [5, 54]]` |
-| DistilBERT + ResNet-50 (`alpha=0.38`) | 86.00% | 78.79% | 88.14% | 83.20% | 85.60% | `[[77, 14], [7, 52]]` |
+| Aligned-subset system | Accuracy | Precision (True) | Recall (True) | F1 (True) | Macro F1 |
+|---|---:|---:|---:|---:|---:|
+| TF-IDF + ResNet-50 (`alpha=0.63`) | 88.00% | 80.60% | 91.53% | 85.71% | 87.68% |
+| DistilBERT + ResNet-50 (`alpha=0.38`) | 86.00% | 78.79% | 88.14% | 83.20% | 85.60% |
 
 These exploratory measurements are not full-test estimates: only 150 of 59,163 official test rows (59,013 fewer) are included. The small validation subset makes the selected weights and metrics uncertain. The fusion results do not replace the full-split text evaluations or establish a general improvement. No statistical significance claim is made.
 
@@ -66,13 +66,18 @@ The raw TSV headers include `domain` and `subreddit` metadata, but the processed
 
 All values below are transcribed from the existing result JSONs. Precision/Recall/F1 are binary scores for True (label 1). No missing metric is reconstructed.
 
-| Model | Test accuracy | Precision | Recall | F1 | Macro F1 | Test examples |
-|---|---:|---:|---:|---:|---:|---|
-| TF-IDF + Logistic Regression | 83.52% | 76.28% | 84.66% | 80.25% | Not recorded | 59,163 |
-| DistilBERT | 83.35% | 76.55% | 83.48% | 79.87% | 82.84% | 59,163 |
-| ResNet-50 | 78.67% | 70.15% | 79.66% | 74.60% | 78.11% | 150 images |
-| TF-IDF + ResNet-50 fusion | 88.00% | 80.60% | 91.53% | 85.71% | 87.68% | 150 aligned test examples |
-| DistilBERT + ResNet-50 fusion | 86.00% | 78.79% | 88.14% | 83.20% | 85.60% | 150 aligned test examples |
+The text models were evaluated on all 59,163 official test rows. ResNet-50 and both fusion variants were evaluated on the same 150-example held-out image subset, with labels 0=Fake and 1=True. Do not compare the full-split text metrics and subset image/fusion metrics as if their test scopes were equivalent.
+
+| Full-test text system | Accuracy | Precision (True) | Recall (True) | F1 (True) | Macro F1 |
+|---|---:|---:|---:|---:|---:|
+| TF-IDF + Logistic Regression | 83.52% | 76.28% | 84.66% | 80.25% | Not recorded |
+| DistilBERT | 83.35% | 76.55% | 83.48% | 79.87% | 82.84% |
+
+| Image / aligned-fusion system | Accuracy | Precision (True) | Recall (True) | F1 (True) | Macro F1 |
+|---|---:|---:|---:|---:|---:|
+| ResNet-50 (150 images) | 78.67% | 70.15% | 79.66% | 74.60% | 78.11% |
+| TF-IDF + ResNet-50 (`alpha=0.63`) | 88.00% | 80.60% | 91.53% | 85.71% | 87.68% |
+| DistilBERT + ResNet-50 (`alpha=0.38`) | 86.00% | 78.79% | 88.14% | 83.20% | 85.60% |
 
 Test confusion matrices (rows = actual; columns = predicted; class order `[Fake, True]`):
 
@@ -88,11 +93,13 @@ Text branch comparisons use the same full test split and label convention, thoug
 
 ### Result plots
 
-The comparison chart shows the recorded scalar metrics without suggesting equivalent test protocols. The confusion matrices show each model's actual test scope.
+Charts report score values as percentages. Precision, Recall and F1 refer to the positive class True (label 1). Macro F1 averages classes 0 and 1. The comparison plot separates full-test text rows from image/fusion subsets; the fusion models use 150 aligned test examples.
 
-![Recorded test metric comparison](figures/model_comparison.png)
+![Test metric comparison: full test rows and aligned image subset](figures/model_comparison.png)
 
-![Recorded test confusion matrices](figures/confusion_matrices.png)
+![Full official test-split confusion matrices for text models](figures/confusion_matrices_full_test.png)
+
+![Confusion matrices for image and fusion models evaluated on 150 aligned test examples](figures/confusion_matrices_subset.png)
 
 ## 5. Inference demonstration
 
