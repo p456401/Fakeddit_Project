@@ -29,6 +29,8 @@ desktop.ini
 credentials.json
 *.log
 *.tmp
+/.streamlit/secrets.toml
+/.streamlit/secrets/
 
 # Keep only the intentionally published model assets.
 /models/*

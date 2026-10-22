@@ -1,8 +1,6 @@
 # Context-Aware Multimodal Misinformation Verification
 
-An ML-only B.Tech major-project repository for experiments on Fakeddit. The current implementation includes evaluated text-only and image-only classifiers and an exploratory, validation-selected late-fusion baseline measured on a small aligned image/text subset. It is **not yet an end-to-end context-aware multimodal verifier**: CLIP and context metadata analysis remain incomplete.
-
-No frontend is required for this submission.
+An ML-backed B.Tech CSE major-project repository for experiments on Fakeddit. It includes evaluated text-only and image-only classifiers, a Streamlit application connected to the saved models, and an exploratory validation-selected late-fusion baseline measured on a small aligned image/text subset. The application is a research demonstrator, **not an end-to-end context-aware verification service**: CLIP and context-metadata analysis remain incomplete.
 
 ## What is implemented
 
@@ -12,6 +10,7 @@ No frontend is required for this submission.
 | DistilBERT (`distilbert-base-uncased`) | Text | `experiments/transformer_results.json`; local model and tokenizer under `models/distilbert_fakeddit_text/` | 59,163 official test rows |
 | ResNet-50 (ImageNet V2 initialization) | Image | `experiments/resnet_results.json`; checkpoint under `models/resnet_fakeddit/` | Held-out subset of 150 official test images |
 | Text-image late fusion | Text + aligned image | `experiments/multimodal_late_fusion_20261015_140619.json` | Exploratory; 150 aligned validation and 150 held-out test examples only |
+| Streamlit application | User text, optional local image | `app.py`; uses saved model checkpoints and result JSONs | Local inference; no new evaluation metrics |
 | CLIP consistency | Text + image | No local CLIP weights; no download performed | Future work |
 | Context metadata model | Domain/subreddit fields exist in raw TSVs but are not in the processed classifier inputs | Not implemented/evaluated | Future work |
 
@@ -59,7 +58,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-The requirements include the transformer and image branches and may download sizable ML packages. If only text baseline inference is needed, install `numpy`, `pandas`, `scikit-learn`, and `joblib` in the environment instead of installing the full ML stack. No dataset is bundled. The `.pth` and `.safetensors` checkpoints are tracked with Git LFS; a clone that skips LFS downloads cannot load those weights.
+The requirements include Streamlit and the local text/image inference dependencies. PyTorch, Transformers and Streamlit downloads may be sizable. The project also has old, incomplete local virtual environments; use a clean Python 3.12 environment or a system Python that has the dependencies rather than assuming those folders work. No dataset is needed to launch the application or analyze a supplied input. No dataset is bundled. The `.pth` and `.safetensors` checkpoints are tracked with Git LFS; a clone that skips LFS downloads cannot load those weights. A CPU-capable PyTorch build is sufficient for local inference.
 
 ## Dataset
 
@@ -73,7 +72,21 @@ The experiment scripts consume `data/processed/train_clean.csv`, `validation_cle
 
 ## Demo and experiments
 
-After cloning with Git LFS and installing dependencies, run the local model demo:
+After cloning with Git LFS and installing dependencies, launch the Streamlit application from the repository root:
+
+```powershell
+python -m streamlit run app.py
+```
+
+To use the explicit Python 3.12 virtual environment:
+
+```powershell
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Open the local URL printed by Streamlit (normally `http://localhost:8501`). The **Analyze a claim** page accepts headline/text and an optional JPG, PNG, WebP or BMP. TF-IDF and DistilBERT run when text is supplied; ResNet-50 runs when an image is supplied. Text-image late fusion appears only when both modality predictions and the saved fusion record are available. The app loads checkpoints on first use, caches them in process memory, runs on CPU, and does not download or train models at launch. Invalid/oversized images are rejected; missing or unloadable model artifacts are shown as per-model errors without suppressing other available models.
+
+The **Saved results** page reads the existing experiment JSONs and displays the metric table and confusion matrices; it does not evaluate or alter results. The upload is processed locally (maximum 20 MB), and the app does not send user text/images to an external service. Direct CLI examples are:
 
 ```powershell
 .\.venv\Scripts\python.exe src\multimodal_inference.py predict --text "Example claim text"
@@ -114,7 +127,7 @@ Training writes model/results artifacts. Inspect each script's output paths firs
 - [Project report (PDF)](docs/Project_Report.pdf)
 - [Experiment details](experiments/README.md)
 
-The report states the measured scopes and limitations. Team and institutional details are omitted because they were not verified in the workspace.
+The report states measured scopes and limitations. Team and institutional details are omitted because they were not verified in the workspace. The Streamlit UI is a presentation layer for existing local models and saved metrics; it adds no new evaluation result.
 
 ## Limitations and next work
 
@@ -123,7 +136,8 @@ The report states the measured scopes and limitations. Team and institutional de
 - DistilBERT trained on deterministic 8,000-row train and validation subsets. Existing result records report CPU execution.
 - CLIP consistency and context metadata analysis need implementation/evaluation before claiming those components are complete.
 - Text/image ID non-overlap does not prove semantic or near-duplicate independence.
-- This repository does not implement a frontend, backend service or deployment.
+- The app's prediction scores are not calibrated factuality probabilities or independent evidence verification.
+- No backend service or deployment is implemented.
 
 ## References
 

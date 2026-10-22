@@ -3,17 +3,17 @@
 ## B.Tech Major Project — Machine-Learning Submission
 
 **Project team / institute:** Not included; verified details were not present in the inspected workspace.
-**Submission scope:** ML experiments, reproducible inference and evaluation documentation. A frontend is not required.
+**Submission scope:** ML experiments, reproducible inference, evaluation documentation, and a local Streamlit application. Team and institute names are not stated because verified details were not present in the workspace.
 
 ## Abstract
 
-This project investigates misinformation classification on Fakeddit using text and image modalities. The verified implementation contains a TF-IDF plus Logistic Regression text baseline, a fine-tuned DistilBERT text classifier, and a ResNet-50 image classifier. Saved result files report full official test-split evaluation for the two text systems and held-out subset evaluation for the image model. Existing artifacts and scripts are inspected; TF-IDF and DistilBERT were additionally smoke-tested for local inference. The current models remain independent classifiers. This report does not claim that context-aware multimodal fusion or CLIP has been completed. Results, sample scopes, class imbalance, and limits to comparability are made explicit.
+This project investigates misinformation classification on Fakeddit using text and image modalities. The verified implementation contains a TF-IDF plus Logistic Regression text baseline, a fine-tuned DistilBERT text classifier, and a ResNet-50 image classifier. Saved result files report full official test-split evaluation for the two text systems and held-out subset evaluation for the image model. A local Streamlit application provides inference with these saved models and displays saved metrics; it does not create new evaluation results. A separate exploratory late-fusion baseline was evaluated on 150 aligned validation and 150 aligned held-out test examples. CLIP consistency and context-metadata modeling remain incomplete. Results, sample scopes, class imbalance, and limits to comparability are made explicit.
 
 ## 1. Problem and scope
 
 Misinformation can be expressed in text and visual content. Fakeddit is a multimodal fake-news benchmark built from Reddit content [1]. This project evaluates practical text and image classifiers on the project's processed Fakeddit split files. Labels are `0 = Fake` and `1 = True`.
 
-The submission focuses on a small, reproducible ML deliverable rather than a user interface. A context-aware fused verifier would additionally require an implemented, leakage-controlled combination of aligned modalities and any context fields. Existing standalone results do not establish that such a system has been completed.
+The submission includes a Streamlit research demonstration connected to the saved classifiers. A fully context-aware verifier would additionally require a validated context model and broader leakage-controlled multimodal evaluation. The small aligned-subset fusion experiment is exploratory and does not establish that the complete context-aware system has been finished.
 
 ## 2. Dataset and split protocol
 
@@ -103,7 +103,7 @@ Charts report score values as percentages. Precision, Recall and F1 refer to the
 
 ## 5. Inference demonstration
 
-The local inference CLI loads available model artifacts and returns individual branch predictions. Optional image inference requires a readable local image and available ResNet checkpoint. Predictions on demonstration inputs are not measured evaluation metrics. For repeatability, use the CLI command from the repository README and record the exact input/artifact version when presenting a demo.
+The local Streamlit application (`python -m streamlit run app.py`) and inference CLI load available model artifacts and return individual branch predictions. Text inputs use TF-IDF and DistilBERT; optional local images use ResNet-50. When both branches succeed, the UI can additionally display the saved validation-selected late-fusion rule. This demonstration does not compute CLIP consistency or use domain/subreddit context. Predictions on demonstration inputs are not measured evaluation metrics. For repeatability, use the documented app or CLI command and record the exact input/artifact version when presenting a demo.
 
 TF-IDF and DistilBERT were verified to load and predict on two synthetic smoke-test strings using system Python 3.12.6. This checks the local inference path only; it does not evaluate accuracy or validate the ResNet inference environment. A fully clean install of all ML dependencies into a fresh environment was not performed.
 
@@ -121,7 +121,7 @@ Use Python 3.12 and install only the requirements needed for the desired branch.
 4. ID-level checks do not prove semantic independence. More robust near-duplicate checks would require a separate, carefully designed audit.
 5. Raw `domain` and `subreddit` metadata are available but were not used; community signals require a controlled feature and leakage analysis.
 6. CLIP requires selecting and obtaining an appropriate pretrained checkpoint and then evaluating a clearly defined consistency method. It remains future work; no weights were downloaded.
-7. No frontend, backend, deployment, or end-to-end verification service is implemented or required by the project's stated submission scope.
+7. The Streamlit app is a local presentation/inference interface, not a deployed backend or an end-to-end factual verification service.
 8. Runtime dependency installation and full retraining have not been claimed by this report.
 
 ## References

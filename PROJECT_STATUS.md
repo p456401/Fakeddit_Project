@@ -78,7 +78,7 @@ Test confusion matrix (label order 0, 1): `[[29603, 6160], [3589, 19811]]`. Macr
 - `models/`: saved TF-IDF artifacts, DistilBERT model/tokenizer, and ResNet-50 checkpoint.
 - `experiments/`: baseline, transformer, ResNet, and exploratory late-fusion result JSONs plus experiment notes.
 - `requirements-transformer.txt` and `requirements-image.txt`: optional dependencies for the corresponding model branches.
-- `app/` and `notebooks/` currently have no project files.
+- `app.py`: Streamlit application for local text/image inference and browsing saved results. The `app/` and `notebooks/` directories have no project files.
 
 | Component | Status |
 |---|---|
@@ -87,6 +87,7 @@ Test confusion matrix (label order 0, 1): `[[29603, 6160], [3589, 19811]]`. Macr
 | DistilBERT | COMPLETED |
 | ResNet-50 | COMPLETED |
 | Local inference CLI | COMPLETED — TF-IDF/DistilBERT plus optional local-image ResNet |
+| Streamlit application | COMPLETED — local input, available-model predictions, saved metrics and confusion matrices |
 | Text-image late fusion | PARTIAL — exploratory probability fusion evaluated on 150 aligned validation and 150 test examples |
 | CLIP image-text consistency | NOT STARTED — future work |
 | Context metadata analysis | NOT STARTED — raw `domain` and `subreddit` are available but not modeled |
@@ -94,4 +95,4 @@ Test confusion matrix (label order 0, 1): `[[29603, 6160], [3589, 19811]]`. Macr
 | Dedicated URL extraction | NOT STARTED — future work |
 | Backend/deployment | NOT STARTED — future work |
 
-The current implementation consists of separate text and image branches plus an exploratory late-fusion baseline limited to aligned image subsets. CLIP image-text consistency, context analysis, full-split multimodal evaluation, and dedicated URL extraction remain future work. The project is not yet an end-to-end context-aware multimodal verification system; no frontend is required, and no backend or deployment is implemented.
+The current implementation consists of separate text and image branches, an exploratory late-fusion baseline limited to aligned image subsets, and a Streamlit interface for local inference and saved-result inspection. CLIP image-text consistency, context analysis, full-split multimodal evaluation, and dedicated URL extraction remain future work. The project is not yet an end-to-end context-aware multimodal verification system; no backend or deployment is implemented.
